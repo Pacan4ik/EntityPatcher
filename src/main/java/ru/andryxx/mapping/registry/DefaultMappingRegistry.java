@@ -26,11 +26,16 @@ public class DefaultMappingRegistry implements MappingRegistry {
     private final Map<String, String> userMappings = new ConcurrentHashMap<>();
     private final Map<String, MappingPair> resolvedMappings = new ConcurrentHashMap<>();
     private final NamingResolver namingResolver;
-    private final MappingStrategy mappingStrategy;
+    private MappingStrategy mappingStrategy;
 
     public DefaultMappingRegistry(NamingResolver namingResolver, MappingStrategy mappingStrategy) {
         this.namingResolver = namingResolver;
         this.mappingStrategy = mappingStrategy;
+    }
+
+    @Override
+    public void setStrategy(MappingStrategy strategy) {
+        this.mappingStrategy = strategy;
     }
 
     @Override
@@ -64,7 +69,9 @@ public class DefaultMappingRegistry implements MappingRegistry {
                     getter.type(),
                     setter.type(),
                     getter.name(),
-                    setter.name()
+                    setter.name(),
+                    fromField,
+                    toField
             ));
         }
 
@@ -205,7 +212,10 @@ public class DefaultMappingRegistry implements MappingRegistry {
             if (!filter.test(element)) continue;
 
             String fieldName = fieldNameExtractor.apply(element);
-            if (userMappings.containsKey(fieldName) || resolvedMappings.containsKey(fieldName)) continue;
+            if (userMappings.containsKey(fieldName)
+                || userMappings.containsValue(fieldName)
+                || resolvedMappings.containsKey(fieldName)) continue;
+
 
             try {
                 GetterResolution getter = resolveGetter(fromType, fieldName);
@@ -216,7 +226,9 @@ public class DefaultMappingRegistry implements MappingRegistry {
                         getter.type(),
                         setter.type(),
                         getter.name(),
-                        setter.name()
+                        setter.name(),
+                        fieldName,
+                        fieldName
                 ));
             } catch (MatchingPathException ignored) {
             }

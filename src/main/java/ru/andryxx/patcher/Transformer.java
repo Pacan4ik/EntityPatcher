@@ -1,4 +1,4 @@
-package ru.andryxx;
+package ru.andryxx.patcher;
 
 import java.util.function.Function;
 

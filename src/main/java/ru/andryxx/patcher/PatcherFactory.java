@@ -1,4 +1,4 @@
-package ru.andryxx;
+package ru.andryxx.patcher;
 
 import ru.andryxx.mapping.MappingStrategy;
 
@@ -10,7 +10,7 @@ class PatcherFactory {
     }
 
     public static <D, E> Patcher<D, E> createDefault(Class<D> dClass, Class<E> eClass) {
-        return Patcher.emptyPatcher(dClass, eClass)
+        return Patcher.defaultPatcher(dClass, eClass)
                 .withMappingStrategy(MappingStrategy.USE_METHODS_AND_FIELDS)
                 .withTransformer(Transformer.of(String.class, LocalDateTime.class, LocalDateTime::parse))
                 .withTransformer(Transformer.of(String.class, LocalDate.class, LocalDate::parse))

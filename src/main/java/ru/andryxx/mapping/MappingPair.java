@@ -17,6 +17,8 @@ public record MappingPair(
         Class<?> fromObjectValueType,
         Class<?> toObjectValueType,
         String fromName,
-        String toName
+        String toName,
+        String fromFieldName,
+        String toFieldName
 ) {}
 

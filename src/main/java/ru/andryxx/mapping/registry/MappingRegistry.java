@@ -2,6 +2,7 @@ package ru.andryxx.mapping.registry;
 
 import ru.andryxx.exceptions.MatchingPathException;
 import ru.andryxx.mapping.MappingPair;
+import ru.andryxx.mapping.MappingStrategy;
 
 import java.util.Optional;
 import java.util.Set;
@@ -11,6 +12,12 @@ import java.util.Set;
  * Provides methods to register, retrieve, and scan mappings.
  */
 public interface MappingRegistry {
+    /**
+     * Sets a strategy for mapping
+     *
+     * @param strategy The mapping strategy
+     */
+    void setStrategy(MappingStrategy strategy);
 
     /**
      * Registers a field mapping between two paths.

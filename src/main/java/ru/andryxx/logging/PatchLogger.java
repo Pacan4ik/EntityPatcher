@@ -2,5 +2,5 @@ package ru.andryxx.logging;
 
 @FunctionalInterface
 public interface PatchLogger {
-    void log(String field, Object oldValue, Object newValue);
+    void log(String fromField, String toField, Object newValue);
 }
