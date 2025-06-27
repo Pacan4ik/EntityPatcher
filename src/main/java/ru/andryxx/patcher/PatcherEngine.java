@@ -26,20 +26,20 @@ public class PatcherEngine<D, E> {
         private final BiConsumer<Object, Object> setter;
         private final Function<Object, Object> function;
 
-        protected PatchApplier(Function<Object, Object> getter,
-                               BiConsumer<Object, Object> setter,
-                               Function<Object, Object> function) {
+        private PatchApplier(Function<Object, Object> getter,
+                             BiConsumer<Object, Object> setter,
+                             Function<Object, Object> function) {
             this.getter = getter;
             this.setter = setter;
             this.function = Objects.requireNonNullElse(function, Function.identity());
         }
 
-            public Object apply(D d, E e) {
-                Object value = getter.apply(d);
-                Object transformedValue = function.apply(value);
-                setter.accept(e, transformedValue);
-                return transformedValue;
-            }
+        public Object apply(D d, E e) {
+            Object value = getter.apply(d);
+            Object transformedValue = function.apply(value);
+            setter.accept(e, transformedValue);
+            return transformedValue;
+        }
 
         public Function<Object, Object> getter() {
             return getter;
@@ -76,7 +76,7 @@ public class PatcherEngine<D, E> {
                    "function=" + function + ']';
         }
 
-        }
+    }
 
     protected record PatchStep<D, E>(
             MappingPair mapping,
@@ -186,12 +186,12 @@ public class PatcherEngine<D, E> {
         context.setPatchValidator(validator);
     }
 
-    public void patch(D fromObject, E toObject) throws ValidationException, MappingExecutionException {
+    public void patch(D dObject, E eObject) throws ValidationException, MappingExecutionException {
         List<MappingPair> mappings = isMappingsValid ? mappingPairs : getMappings();
         if (!isMappingsValid || !isContextValid) {
             patchSteps.clear();
             mappingPairs = mappings;
-            mappings = filterConditions(filterNull(filterIgnored(mappings.stream()), fromObject), fromObject, toObject)
+            mappings = filterConditions(filterNull(filterIgnored(mappings.stream()), dObject), dObject, eObject)
                     .toList();
             var globalTransformers = context.getGlobalTransformers();
             var fieldTransformers = context.getFieldTransformers();
@@ -200,11 +200,12 @@ public class PatcherEngine<D, E> {
             isContextValid = true;
         }
 
-        processPatchSteps(fromObject, toObject, patchSteps);
-        processPostMappings(fromObject, toObject);
+        before(dObject, eObject);
+        processPatchSteps(dObject, eObject, patchSteps);
+        processPostMappings(dObject, eObject);
         PatchValidator<E> validator = context.getPatchValidator();
         if (validator != null) {
-            validator.validate(toObject);
+            validator.validate(eObject);
         }
 
     }
@@ -224,6 +225,7 @@ public class PatcherEngine<D, E> {
         var fieldTransformers = context.getFieldTransformers();
         var patchSteps = getPatchSteps(mappings, fieldTransformers, globalTransformers);
 
+        before(dObject, eObject);
         processPatchSteps(dObject, eObject, patchSteps);
         processPostMappings(dObject, eObject);
         PatchValidator<E> validator = context.getPatchValidator();
@@ -249,6 +251,13 @@ public class PatcherEngine<D, E> {
         return instance;
     }
 
+    private void before(D dObject, E eObject) {
+        PatchLogger logger = context.getPatchLogger();
+        if (logger != null) {
+            logger.logObjInfo(dObject, eObject);
+        }
+    }
+
     private List<PatchStep<D, E>> getPatchSteps(List<MappingPair> mappings,
                                                 Map<String, List<Transformer<?, ?>>> fieldTransformers,
                                                 Map<Class<?>, Map<Class<?>, Function<?, ?>>> globalTransformers) {
@@ -272,6 +281,11 @@ public class PatcherEngine<D, E> {
             }
             if (applier != null) {
                 patchSteps.add(new PatchStep<>(mapping, applier));
+            } else if (!mapping.isAutoMapping()) {
+                throw new MappingExecutionException("Unable to find suitable transformation for "
+                                                    + mapping.fromFieldName() + " (" + mapping.fromObjectValueType()
+                                                    + ") to " + mapping.toFieldName()
+                                                    + " (" + mapping.toObjectValueType() + ")");
             }
         }
         return patchSteps;
@@ -312,8 +326,8 @@ public class PatcherEngine<D, E> {
         } catch (Exception e) {
             throw new MappingExecutionException("Exception while getting mappings for " + dClass, e);
         }
-        for (String fromField : mappingRegistry.getAllFromObjectFields()) {
-            mappingRegistry.getFieldMapping(fromField).ifPresent(mappings::add);
+        for (String fromField : mappingRegistry.getAllResolvedFromObject()) {
+            mappings.addAll(mappingRegistry.getFieldMappings(fromField));
         }
         return mappings;
     }

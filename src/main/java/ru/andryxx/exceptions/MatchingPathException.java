@@ -1,6 +1,6 @@
 package ru.andryxx.exceptions;
 
-public class MatchingPathException extends RuntimeException {
+public class MatchingPathException extends MappingExecutionException {
     public MatchingPathException(String message) {
         super(message);
     }
