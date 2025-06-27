@@ -4,6 +4,7 @@ import ru.andryxx.exceptions.MatchingPathException;
 import ru.andryxx.mapping.MappingPair;
 import ru.andryxx.mapping.MappingStrategy;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,14 +34,14 @@ public interface MappingRegistry {
      * @param fromPath The source field path.
      * @return An {@link Optional} containing the {@link MappingPair} if found, or empty if no mapping exists.
      */
-    Optional<MappingPair> getFieldMapping(String fromPath);
+    Collection<MappingPair> getFieldMappings(String fromPath);
 
     /**
      * Retrieves all source field paths that have been found.
      *
      * @return A {@link Set} of all founded source field paths.
      */
-    Set<String> getAllFromObjectFields();
+    Set<String> getAllResolvedFromObject();
 
     /**
      * Scans and registers mappings between fields of two entity types.

@@ -8,8 +8,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -23,8 +23,8 @@ public class DefaultMappingRegistry implements MappingRegistry {
     private record SetterResolution(Class<?> type, BiConsumer<Object, Object> func, String name) {
     }
 
-    private final Map<String, String> userMappings = new ConcurrentHashMap<>();
-    private final Map<String, MappingPair> resolvedMappings = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> userMappings = new ConcurrentHashMap<>();
+    private final Map<String, Set<MappingPair>> resolvedMappings = new ConcurrentHashMap<>();
     private final NamingResolver namingResolver;
     private MappingStrategy mappingStrategy;
 
@@ -40,39 +40,30 @@ public class DefaultMappingRegistry implements MappingRegistry {
 
     @Override
     public void registerFieldMapping(String fromPath, String toPath) {
-        userMappings.put(fromPath, toPath);
+        userMappings.forEach((key, targets) -> targets.remove(toPath));
+        userMappings.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        userMappings.computeIfAbsent(fromPath, _ -> new HashSet<>()).add(toPath);
     }
 
     @Override
-    public Optional<MappingPair> getFieldMapping(String fromPath) {
-        return Optional.ofNullable(resolvedMappings.get(fromPath));
+    public Set<MappingPair> getFieldMappings(String fromPath) {
+        return resolvedMappings.getOrDefault(fromPath, Set.of());
     }
 
     @Override
-    public Set<String> getAllFromObjectFields() {
+    public Set<String> getAllResolvedFromObject() {
         return resolvedMappings.keySet();
     }
 
     @Override
     public void scanEntityMappings(Class<?> fromType, Class<?> toType) throws MatchingPathException {
+        resolvedMappings.clear();
         // explicit mappings
-        for (Map.Entry<String, String> entry : userMappings.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : userMappings.entrySet()) {
             String fromField = entry.getKey();
-            String toField = entry.getValue();
-
-            GetterResolution getter = resolveGetter(fromType, fromField);
-            SetterResolution setter = resolveSetter(toType, toField);
-
-            resolvedMappings.put(fromField, new MappingPair(
-                    getter.func(),
-                    setter.func(),
-                    getter.type(),
-                    setter.type(),
-                    getter.name(),
-                    setter.name(),
-                    fromField,
-                    toField
-            ));
+            for (String toField : entry.getValue()) {
+                resolve(resolveGetter(fromType, fromField), resolveSetter(toType, toField), fromField, toField, false);
+            }
         }
 
         // auto mappings (METHODS)
@@ -213,26 +204,33 @@ public class DefaultMappingRegistry implements MappingRegistry {
 
             String fieldName = fieldNameExtractor.apply(element);
             if (userMappings.containsKey(fieldName)
-                || userMappings.containsValue(fieldName)
-                || resolvedMappings.containsKey(fieldName)) continue;
-
-
+                || userMappings.values().stream().anyMatch(s -> s.contains(fieldName))
+                || resolvedMappings.containsKey(fieldName)
+                || resolvedMappings.values().stream().anyMatch(s -> s.stream()
+                    .anyMatch(m -> m.toFieldName().equals(fieldName)))) {
+                continue;
+                // do smth with this statement
+            }
             try {
-                GetterResolution getter = resolveGetter(fromType, fieldName);
-                SetterResolution setter = resolveSetter(toType, fieldName);
-                resolvedMappings.put(fieldName, new MappingPair(
-                        getter.func(),
-                        setter.func(),
-                        getter.type(),
-                        setter.type(),
-                        getter.name(),
-                        setter.name(),
-                        fieldName,
-                        fieldName
-                ));
+                resolve(resolveGetter(fromType, fieldName), resolveSetter(toType, fieldName), fieldName, fieldName, true);
             } catch (MatchingPathException ignored) {
             }
         }
+    }
+
+    private void resolve(GetterResolution fromType, SetterResolution toType, String fromName, String toName, boolean isAutoMapping) {
+        resolvedMappings.computeIfAbsent(fromName, _ -> new HashSet<>())
+                .add(new MappingPair(
+                        fromType.func(),
+                        toType.func(),
+                        fromType.type(),
+                        toType.type(),
+                        fromType.name(),
+                        toType.name(),
+                        fromName,
+                        toName,
+                        isAutoMapping
+                ));
     }
 
 }

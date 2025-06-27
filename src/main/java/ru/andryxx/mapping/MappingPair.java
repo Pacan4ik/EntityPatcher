@@ -19,6 +19,7 @@ public record MappingPair(
         String fromName,
         String toName,
         String fromFieldName,
-        String toFieldName
+        String toFieldName,
+        boolean isAutoMapping
 ) {}
 
