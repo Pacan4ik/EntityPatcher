@@ -4,6 +4,13 @@ public class TestAddress {
     private String city;
     private int zipCode;
 
+    public TestAddress() {}
+
+    public TestAddress(String city, int zipCode) {
+        this.city = city;
+        this.zipCode = zipCode;
+    }
+
     public String getCity() {
         return city;
     }

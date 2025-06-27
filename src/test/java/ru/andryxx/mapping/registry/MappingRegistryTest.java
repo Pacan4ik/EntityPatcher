@@ -4,11 +4,13 @@ import org.junit.jupiter.api.Test;
 import ru.andryxx.classes.TestDTO;
 import ru.andryxx.classes.TestEntity;
 import ru.andryxx.exceptions.MatchingPathException;
+import ru.andryxx.mapping.MappingPair;
 import ru.andryxx.mapping.MappingStrategy;
 
 import java.util.Set;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,22 +23,24 @@ public class MappingRegistryTest {
 
         registry.scanEntityMappings(TestDTO.class, TestEntity.class);
 
-        var dtoFields = registry.getAllFromObjectFields();
-        assertThat(dtoFields, equalTo(Set.of("age", "active")));
+        var dtoFields = registry.getAllResolvedFromObject();
+        assertThat(dtoFields, containsInAnyOrder("active", "age", "birthdate"));
 
-        var opMapPairAge = registry.getFieldMapping("age");
-        assertTrue(opMapPairAge.isPresent());
-        assertEquals(int.class, opMapPairAge.get().fromObjectValueType());
-        assertEquals(int.class, opMapPairAge.get().toObjectValueType());
-        assertEquals("getAge", opMapPairAge.get().fromName());
-        assertEquals("setAge", opMapPairAge.get().toName());
+        var ageMappings = registry.getFieldMappings("age");
+        assertFalse(ageMappings.isEmpty());
+        var ageMapping = ageMappings.iterator().next();
+        assertEquals(int.class, ageMapping.fromObjectValueType());
+        assertEquals(int.class, ageMapping.toObjectValueType());
+        assertEquals("getAge", ageMapping.fromName());
+        assertEquals("setAge", ageMapping.toName());
 
-        var opMapPairActive = registry.getFieldMapping("active");
-        assertTrue(opMapPairActive.isPresent());
-        assertEquals(boolean.class, opMapPairActive.get().fromObjectValueType());
-        assertEquals(boolean.class, opMapPairActive.get().toObjectValueType());
-        assertEquals("isActive", opMapPairActive.get().fromName());
-        assertEquals("setActive", opMapPairActive.get().toName());
+        var activeMappings = registry.getFieldMappings("active");
+        assertFalse(activeMappings.isEmpty());
+        var activeMapping = activeMappings.iterator().next();
+        assertEquals(boolean.class, activeMapping.fromObjectValueType());
+        assertEquals(boolean.class, activeMapping.toObjectValueType());
+        assertEquals("isActive", activeMapping.fromName());
+        assertEquals("setActive", activeMapping.toName());
     }
 
     @Test
@@ -45,13 +49,14 @@ public class MappingRegistryTest {
 
         registry.scanEntityMappings(TestDTO.class, TestEntity.class);
 
-        var dtoFields = registry.getAllFromObjectFields();
+        var dtoFields = registry.getAllResolvedFromObject();
         assertThat(dtoFields, equalTo(Set.of("publicField")));
 
-        var opMapPair = registry.getFieldMapping("publicField");
-        assertTrue(opMapPair.isPresent());
-        assertEquals(String.class, opMapPair.get().fromObjectValueType());
-        assertEquals(String.class, opMapPair.get().toObjectValueType());
+        var mappings = registry.getFieldMappings("publicField");
+        assertFalse(mappings.isEmpty());
+        var mapping = mappings.iterator().next();
+        assertEquals(String.class, mapping.fromObjectValueType());
+        assertEquals(String.class, mapping.toObjectValueType());
     }
 
     @Test
@@ -59,8 +64,8 @@ public class MappingRegistryTest {
         MappingRegistry registry = new DefaultMappingRegistry(resolver, MappingStrategy.USE_METHODS_AND_FIELDS);
 
         registry.scanEntityMappings(TestDTO.class, TestEntity.class);
-        var dtoFields = registry.getAllFromObjectFields();
-        assertThat(dtoFields, equalTo(Set.of("age", "active", "publicField")));
+        var dtoFields = registry.getAllResolvedFromObject();
+        assertThat(dtoFields, containsInAnyOrder("age", "active", "publicField", "birthdate"));
     }
 
 
@@ -71,12 +76,14 @@ public class MappingRegistryTest {
         registry.registerFieldMapping("fullName", "name");
         assertDoesNotThrow(() -> registry.scanEntityMappings(TestDTO.class, TestEntity.class));
 
-        var dtoFields = registry.getAllFromObjectFields();
+        var dtoFields = registry.getAllResolvedFromObject();
+        System.out.println(dtoFields);
         assertTrue(dtoFields.contains("fullName"));
-        var opMapPair = registry.getFieldMapping("fullName");
-        assertTrue(opMapPair.isPresent());
-        assertEquals("getFullName", opMapPair.get().fromName());
-        assertEquals("setName", opMapPair.get().toName());
+        var mappings = registry.getFieldMappings("fullName");
+        assertFalse(mappings.isEmpty());
+        var mapping = mappings.iterator().next();
+        assertEquals("getFullName", mapping.fromName());
+        assertEquals("setName", mapping.toName());
     }
 
     @Test
@@ -106,13 +113,14 @@ public class MappingRegistryTest {
         dto.setAge(20);
         TestEntity entity = new TestEntity();
 
-        var opMapping = registry.getFieldMapping("age");
-        assertTrue(opMapping.isPresent());
-        var dtoAge = opMapping.get().getter().apply(dto);
+        var mappings = registry.getFieldMappings("age");
+        assertFalse(mappings.isEmpty());
+        MappingPair mapping = mappings.iterator().next();
+        var dtoAge = mapping.getter().apply(dto);
         assertEquals(Integer.class, dtoAge.getClass());
         assertEquals(20, (Integer) dtoAge);
 
-        opMapping.get().setter().accept(entity, 20);
+        mapping.setter().accept(entity, 20);
         assertEquals(20, entity.getAge());
     }
 }

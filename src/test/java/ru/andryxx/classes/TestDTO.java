@@ -4,6 +4,7 @@ public class TestDTO {
     private String fullName;
     private int age;
     private boolean active;
+    private String birthdate;
 
     public String publicField;
 
@@ -38,5 +39,13 @@ public class TestDTO {
 
     public void setPublicField(String publicField) {
         this.publicField = publicField;
+    }
+
+    public String getBirthdate() {
+        return birthdate;
+    }
+
+    public void setBirthdate(String birthdate) {
+        this.birthdate = birthdate;
     }
 }
