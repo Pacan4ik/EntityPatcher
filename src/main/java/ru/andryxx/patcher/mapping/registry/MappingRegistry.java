@@ -24,7 +24,7 @@ public interface MappingRegistry {
      * Registers a field mapping between two paths.
      *
      * @param fromPath The source field path.
-     * @param toPath The target field path.
+     * @param toPath   The target field path.
      */
     void registerFieldMapping(String fromPath, String toPath);
 
@@ -43,11 +43,19 @@ public interface MappingRegistry {
      */
     Set<String> getAllResolvedFromObject();
 
+
+    /**
+     * Retrieves all registered target field paths.
+     *
+     * @return A {@link Set} of all registered target field paths.
+     */
+    Set<String> getAllRegisteredToFields();
+
     /**
      * Scans and registers mappings between fields of two entity types.
      *
      * @param fromType The source entity class.
-     * @param toType The target entity class.
+     * @param toType   The target entity class.
      */
     void scanEntityMappings(Class<?> fromType, Class<?> toType) throws MatchingPathException;
 }

@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class DefaultMappingRegistry implements MappingRegistry {
     private record GetterResolution(Class<?> type, Function<Object, Object> func, String name) {
@@ -53,6 +54,11 @@ public class DefaultMappingRegistry implements MappingRegistry {
     @Override
     public Set<String> getAllResolvedFromObject() {
         return resolvedMappings.keySet();
+    }
+
+    @Override
+    public Set<String> getAllRegisteredToFields() {
+        return userMappings.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
     }
 
     @Override

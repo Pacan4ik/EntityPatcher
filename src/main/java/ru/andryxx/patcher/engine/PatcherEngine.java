@@ -8,11 +8,7 @@ import ru.andryxx.patcher.mapping.registry.MappingRegistry;
 import ru.andryxx.patcher.validation.PatchValidator;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
@@ -84,6 +80,18 @@ class PatcherEngine<D, E> {
     ) {
     }
 
+    private static final Map<Class<?>, Class<?>> PRIMITIVE_TO_BOXED = Map.ofEntries(
+            Map.entry(boolean.class, Boolean.class),
+            Map.entry(byte.class, Byte.class),
+            Map.entry(char.class, Character.class),
+            Map.entry(double.class, Double.class),
+            Map.entry(float.class, Float.class),
+            Map.entry(int.class, Integer.class),
+            Map.entry(long.class, Long.class),
+            Map.entry(short.class, Short.class),
+            Map.entry(void.class, Void.class)
+    );
+
     private final Class<D> dClass;
     private final Class<E> eClass;
     private final PatchContext<D, E> context = new PatchContext<>();
@@ -97,6 +105,8 @@ class PatcherEngine<D, E> {
     private boolean isMappingsValid = false;
 
     private final List<PatchStep<D, E>> patchSteps = new LinkedList<>();
+
+    private final AnnotationProcessor annotationProcessor = new AnnotationProcessor();
 
     public PatcherEngine(Class<D> dClass, Class<E> eClass, MappingRegistry mappingRegistry) {
         this.dClass = dClass;
@@ -217,10 +227,9 @@ class PatcherEngine<D, E> {
             isMappingsValid = true;
         }
         var mappings = filterConditions(
-                filterNull(mappingPairs.stream()
-                        .filter(m -> eFields.contains(m.toFieldName())
-                                     && !context.getIgnoredFromFields().contains(m.fromFieldName())
-                        ), dObject), dObject, eObject).toList();
+                filterNull(filterIgnoredFrom(mappingPairs.stream()
+                                .filter(m -> eFields.contains(m.toFieldName()))),
+                        dObject), dObject, eObject).toList();
         var globalTransformers = context.getGlobalTransformers();
         var fieldTransformers = context.getFieldTransformers();
         var patchSteps = getPatchSteps(mappings, fieldTransformers, globalTransformers);
@@ -232,6 +241,19 @@ class PatcherEngine<D, E> {
         if (validator != null) {
             validator.validate(eObject);
         }
+    }
+
+    private void fetchAnnotationsMetadata() {
+        if (context.getAnnotationMetadata() == null) {
+            var annotationMetadata = annotationProcessor.process(dClass, eClass);
+            for (var entry : annotationMetadata.fieldTransformers().entrySet()) {
+                for (var fieldTransformer : entry.getValue()) {
+                    addFieldTransformer(entry.getKey(), fieldTransformer);
+                }
+            }
+            context.setAnnotationMetadata(annotationMetadata);
+        }
+
     }
 
     public E mapWithDefaultCtor(D dObject) {
@@ -296,8 +318,11 @@ class PatcherEngine<D, E> {
         for (PatchStep<D, E> patchStep : patchSteps) {
             try {
                 Object newVal = patchStep.applier.apply(dObject, eObject);
-                if (logger != null && (context.isGlobalLogChange() || context.getLogChangeFields()
-                        .getOrDefault(patchStep.mapping.toFieldName(), false))) {
+                if (logger != null
+                    && (context.isGlobalLogChange()
+                        || context.getLogChangeFields().getOrDefault(patchStep.mapping.toFieldName(), false)
+                        || context.getAnnotationMetadata().logChange().contains(patchStep.mapping.toFieldName()))
+                ) {
                     logger.log(patchStep.mapping.fromFieldName(), patchStep.mapping.toFieldName(), newVal);
                 }
             } catch (Exception e) {
@@ -319,9 +344,11 @@ class PatcherEngine<D, E> {
     }
 
     private List<MappingPair> getMappings() {
+        fetchAnnotationsMetadata();
         List<MappingPair> mappings = new LinkedList<>();
         MappingRegistry mappingRegistry = context.getMappingRegistry();
         try {
+            addAnnotationsMappings(mappingRegistry);
             mappingRegistry.scanEntityMappings(dClass, eClass);
         } catch (Exception e) {
             throw new MappingExecutionException("Exception while getting mappings for " + dClass, e);
@@ -332,15 +359,38 @@ class PatcherEngine<D, E> {
         return mappings;
     }
 
-    private Stream<MappingPair> filterIgnored(Stream<MappingPair> mappings) {
-        return mappings.filter(m -> !context.getIgnoredFromFields().contains(m.fromFieldName())
-                                    && !context.getIgnoredToFields().contains(m.toFieldName()));
+    private void addAnnotationsMappings(MappingRegistry registry) {
+        for (Map.Entry<String, String> entry : context.getAnnotationMetadata().mapTo().entrySet()) {
+            registry.registerFieldMapping(entry.getKey(), entry.getValue());
+        }
     }
 
+    private Stream<MappingPair> filterIgnored(Stream<MappingPair> mappings) {
+        return filterIgnoredFrom(filterIgnoredTo(mappings));
+    }
+
+    private Stream<MappingPair> filterIgnoredFrom(Stream<MappingPair> mappings) {
+        Set<String> ignoredFromFields = context.getIgnoredFromFields();
+        Set<String> ignoredFromFieldsAnnotations = context.getAnnotationMetadata().fromIgnore();
+        return mappings.filter(m -> !ignoredFromFields.contains(m.fromFieldName())
+                                    && !ignoredFromFieldsAnnotations.contains(m.toFieldName()));
+    }
+
+    private Stream<MappingPair> filterIgnoredTo(Stream<MappingPair> mappings) {
+        Set<String> ignoredToFields = context.getIgnoredToFields();
+        Set<String> ignoredToFieldsAnnotations = context.getAnnotationMetadata().fromIgnore();
+        return mappings.filter(m -> !ignoredToFields.contains(m.toFieldName())
+                                    && !ignoredToFieldsAnnotations.contains(m.fromFieldName()));
+    }
+
+
     private Stream<MappingPair> filterNull(Stream<MappingPair> mappings, D object) {
+        Set<String> ignoredNullFields = context.getIgnoredNullFields();
+        Set<String> ignoredNullFieldsAnnotations = context.getAnnotationMetadata().ignoreIfNull();
         return mappings.filter(m ->
-                !((context.isGlobalIgnoreNull() ||
-                   context.getIgnoredNullFields().contains(m.fromFieldName()))
+                !((context.isGlobalIgnoreNull()
+                   || ignoredNullFields.contains(m.fromFieldName())
+                   || ignoredNullFieldsAnnotations.contains(m.toFieldName()))
                   && (m.getter().apply(object) == null)));
     }
 
@@ -351,12 +401,17 @@ class PatcherEngine<D, E> {
     }
 
     private PatchApplier<D, E> getSuitableTransformer(MappingPair mapping, Collection<Transformer<?, ?>> transformers) {
+        Class<?> fromType = boxed(mapping.fromObjectValueType());
+        Class<?> toType = boxed(mapping.toObjectValueType());
         for (Transformer<?, ?> t : transformers) {
+            Class<?> inputType = boxed(t.inputType());
+            Class<?> outputType = boxed(t.outputType());
+
             // getter type can be a subclass of inputType
-            boolean inputCompatible = t.inputType().isAssignableFrom(mapping.fromObjectValueType());
+            boolean inputCompatible = inputType.isAssignableFrom(fromType);
             if (!inputCompatible) continue;
             // transformer output can be a subclass of toObjectValueType
-            boolean outputCompatible = mapping.toObjectValueType().isAssignableFrom(t.outputType());
+            boolean outputCompatible = toType.isAssignableFrom(outputType);
             if (!outputCompatible) continue;
 
             try {
@@ -386,5 +441,9 @@ class PatcherEngine<D, E> {
             return new PatchApplier<>(getter, setter, null);
         }
         return null;
+    }
+
+    private static Class<?> boxed(Class<?> type) {
+        return type.isPrimitive() ? PRIMITIVE_TO_BOXED.get(type) : type;
     }
 }

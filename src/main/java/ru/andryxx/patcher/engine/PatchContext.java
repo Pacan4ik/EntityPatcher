@@ -29,6 +29,7 @@ class PatchContext<D, E> {
 
     private final LinkedList<BiConsumer<D, E>> userPostMappings = new LinkedList<>();
 
+    private AnnotationProcessor.AnnotationMetadata annotationMetadata;
     private PatchLogger patchLogger;
     private PatchValidator<E> patchValidator;
     private MappingRegistry mappingRegistry;
@@ -108,5 +109,13 @@ class PatchContext<D, E> {
 
     public Map<String, Boolean> getLogChangeFields() {
         return logChangeFields;
+    }
+
+    public AnnotationProcessor.AnnotationMetadata getAnnotationMetadata() {
+        return annotationMetadata;
+    }
+
+    public void setAnnotationMetadata(AnnotationProcessor.AnnotationMetadata annotationMetadata) {
+        this.annotationMetadata = annotationMetadata;
     }
 }

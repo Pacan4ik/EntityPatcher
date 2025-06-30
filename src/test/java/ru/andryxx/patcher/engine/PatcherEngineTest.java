@@ -556,7 +556,8 @@ public class PatcherEngineTest {
 
         engine.patch(dto, entity);
 
-        verify(mockedValidator, times(1));
+        verify(mockedValidator, times(1))
+                .validate(any(TestEntity.class));
     }
 
     @Test
