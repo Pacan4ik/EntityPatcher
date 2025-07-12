@@ -198,7 +198,7 @@ class PatcherEngine<D, E> {
 
     public void patch(D dObject, E eObject) throws ValidationException, MappingExecutionException {
         List<MappingPair> mappings = isMappingsValid ? mappingPairs : getMappings();
-        if (!isMappingsValid || !isContextValid) {
+//        if (!isMappingsValid || !isContextValid) {
             patchSteps.clear();
             mappingPairs = mappings;
             mappings = filterConditions(filterNull(filterIgnored(mappings.stream()), dObject), dObject, eObject)
@@ -208,7 +208,7 @@ class PatcherEngine<D, E> {
             patchSteps.addAll(getPatchSteps(mappings, fieldTransformers, globalTransformers));
             isMappingsValid = true;
             isContextValid = true;
-        }
+//        }
 
         before(dObject, eObject);
         processPatchSteps(dObject, eObject, patchSteps);
