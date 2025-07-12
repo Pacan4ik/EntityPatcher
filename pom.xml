@@ -4,9 +4,36 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ru.andryxx.patcher</groupId>
-    <artifactId>EntityPatcher</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <groupId>io.github.pacan4ik</groupId>
+    <artifactId>entity-patcher</artifactId>
+    <version>0.0.1</version>
+    <packaging>jar</packaging>
+
+    <name>Entity Patcher</name>
+    <description>Simple Mapper</description>
+    <url>https://github.com/Pacan4ik/EntityPatcher</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/license/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>Pacan4ik</id>
+            <name>Andrey</name>
+            <url>https://github.com/Pacan4ik</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/Pacan4ik/EntityPatcher</url>
+        <connection>scm:git:git://github.com/Pacan4ik/EntityPatcher.git</connection>
+        <developerConnection>scm:git:ssh://github.com/Pacan4ik/EntityPatcher</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <maven.compiler.source>23</maven.compiler.source>
@@ -55,4 +82,30 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <gpgArguments>
+                        <arg>--pinentry-mode</arg>
+                        <arg>loopback</arg>
+                    </gpgArguments>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
